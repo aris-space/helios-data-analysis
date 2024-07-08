@@ -157,7 +157,7 @@ with DatabaseInstance() as db:
         #     # CF FSS
         #     # pressure - temperature plot
         #     print("conf = 2")
-        if config_opt == 2 or 1:
+        if config_opt == 2 or config_opt == 1:
             if config_opt == 2:
                 print("FSS COLD FLOW CONFIGURATION")
             sensors2 = [
@@ -462,7 +462,7 @@ with DatabaseInstance() as db:
 
         # plot 1: pressure - temperature
 
-        if config_opt == 3 or 1:
+        if config_opt == 3 or config_opt == 1:
             if config_opt == 3:
                 print("OSS CF CONFIGURATION")
             sensors4 = [
@@ -735,7 +735,7 @@ with DatabaseInstance() as db:
                     i = i + 1
             fig5.write_html(filepath)
 
-        if config_opt == 4 or 1:
+        if config_opt == 4 or config_opt == 1:
             if config_opt == 4:
                 print("IGNITER CONFIGURATION")
 
@@ -863,7 +863,7 @@ with DatabaseInstance() as db:
             fig7.write_html(filepath)
 
         # Efficiency plots
-        if config_opt == 5 or 1:
+        if config_opt == 5 or config_opt == 1:
             print(
                 "You have chosen to plot the Efficiency plots, good luck, lets hope nothing crashes :)"
             )
@@ -926,26 +926,28 @@ with DatabaseInstance() as db:
                 # left axis:
                 # lsp: eng_lc/(9.81*(oss_mf*fss_mf))
                 #
-                sensor_name[0] = analysis8.sensors[0]
-                sensor_name[1] = analysis8.sensors[1]
-                sensor_name[2] = analysis8.sensors[2]
-                sensor_name[3] = analysis8.sensors[3]
-                sensor_name[4] = analysis8.sensors[4]
-                sensor_name[5] = analysis8.sensors[5]
+                # sensor_name[0] = analysis8.sensors[0]
+                # sensor_name[1] = analysis8.sensors[1]
+                # sensor_name[2] = analysis8.sensors[2]
+                # sensor_name[3] = analysis8.sensors[3]
+                # sensor_name[4] = analysis8.sensors[4]
+                # sensor_name[5] = analysis8.sensors[5]
 
-                sensor_0 = analysis8.sensors_values[id][0]  # eng_lc
-                sensor_1 = analysis8.sensors_values[id][1]  # cc_p
-                sensor_2 = analysis8.sensors_values[id][2]  # oss_mf
-                sensor_3 = analysis8.sensors_values[id][3]  # fss_mf
-                sensor_4 = analysis8.sensors_values[id][4]  # inj_p
-                sensor_5 = analysis8.sensors_values[id][5]  # rnl_oss_p
+                # sensor_0 = analysis8.sensors_values[id][0]  # eng_lc
+                values0 = analysis8.sensors_values[id]["eng_lc"]
+                values1 = analysis8.sensors_values[id]["cc_p"]  # cc_p
+                values2 = analysis8.sensors_values[id]["oss_mf"]  # oss_mf
+                values3 = analysis8.sensors_values[id]["fss_mf"]  # fss_mf
+                values4 = analysis8.sensors_values[id]["inj_p"] # inj_p
+                values5 = analysis8.sensors_values[id]["rnl_oss_p"] # rnl_oss_p
 
-                values0 = analysis8.sensors_values[id][sensor_0]
-                values1 = analysis8.sensors_values[id][sensor_1]
-                values2 = analysis8.sensors_values[id][sensor_2]
-                values3 = analysis8.sensors_values[id][sensor_3]
-                values4 = analysis8.sensors_values[id][sensor_4]
-                values5 = analysis8.sensors_values[id][sensor_5]
+                # values0 = analysis8.sensors_values[id][sensor_0]
+                # values0 = analysis8.sensors_values
+                # values1 = analysis8.sensors_values.get(id, {}).get(sensor_1)
+                # values2 = analysis8.sensors_values.get(id, {}).get(sensor_2)
+                # values3 = analysis8.sensors_values.get(id, {}).get(sensor_3)
+                # values4 = analysis8.sensors_values.get(id, {}).get(sensor_4)
+                # values5 = analysis8.sensors_values.get(id, {}).get(sensor_5)
 
                 sensor_cut0 = values0[
                     (values0["timestamp"] >= start8) & (values0["timestamp"] <= end8)
@@ -995,18 +997,61 @@ with DatabaseInstance() as db:
                 )
                 sensor_cut5["time_relative"] = sensor_cut5["timestamp"] - start8
 
-                # lsp: eng_lc/(9.81*(oss_mf*fss_mf))
+                # lsp: eng_lc/(9.81*(oss_mf+fss_mf))
                 #       0              2      3
+                rolling_mean_0 = sensor_cut0["value"].rolling(30).mean()
+                rolling_mean_2 = sensor_cut2["value"].rolling(30).mean() / 1000  # Convert to appropriate units if needed
+                rolling_mean_3 = sensor_cut3["value"].rolling(30).mean() / 1000  # Convert to appropriate units if needed
+                rolling_average_window = len(sensor_cut0) / len(sensor_cut3)
+                indices = np.arange(0, len(sensor_cut0), rolling_average_window)
+                indices = indices[:len(sensor_cut3)]
+                rolling_mean_0 = rolling_mean_0.iloc[indices.astype(int)]
+
+                print("deb ", rolling_average_window)
+
+                print("DEBUGGING this will be thrust length \n", len(sensor_cut0))
+
+                print("DEBUGGING this will be oss_mf length \n", len(sensor_cut2))
+                print("DEBUGGING this will be fss_mf length \n", len(sensor_cut3))
+                # Combine sensor 2 and sensor 3 values and handle division by zero
+                combined_mass_flow = rolling_mean_2 + rolling_mean_3
+                safe_divisor = np.where(combined_mass_flow != 0, combined_mass_flow, np.nan)  # Replace 0 with NaN to avoid division by zero
+
+                # Calculate lsp
+                lsp_values = rolling_mean_0 / (9.81 * safe_divisor)
+
+                # Add trace to figure
+                fig8.add_trace(
+                    go.Scatter(
+                        x=sensor_cut3["time"],
+                        y=lsp_values,
+                        name="lsp"
+                    ),
+                    secondary_y=False
+                )
+
                 fig8.add_trace(
                     go.Scatter(
                         x=sensor_cut0["time"],
-                        y=sensor_cut0["value"].rolling(30).mean()
-                        / (
-                            9.81
-                            * sensor_cut2["value"].rolling(30).mean()
-                            * sensor_cut3["value"].rolling(30).mean()
-                        ),
-                        name="lsp",
+                        y=sensor_cut0["value"].rolling(30).mean(),
+                        name="thrust",
+                    ),
+                    secondary_y=False,
+                )
+                
+                fig8.add_trace(
+                    go.Scatter(
+                        x=sensor_cut2["time"],
+                        y=sensor_cut2["value"].rolling(30).mean(),
+                        name="oss_mf",
+                    ),
+                    secondary_y=False,
+                )
+                fig8.add_trace(
+                    go.Scatter(
+                        x=sensor_cut3["time"],
+                        y=sensor_cut3["value"].rolling(30).mean(),
+                        name="fss_mf",
                     ),
                     secondary_y=False,
                 )
@@ -1016,7 +1061,7 @@ with DatabaseInstance() as db:
                 #            1                   3       2
                 fig8.add_trace(
                     go.Scatter(
-                        x=sensor_cut1["time"],
+                        x=sensor_cut2["time"],
                         y=sensor_cut1["value"].rolling(30).mean()
                         * 176.71
                         * 10**-6
@@ -1036,7 +1081,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut3["time"],
-                            y=sensor_cut3["value"].rolling(30).mean()
+                            y=(sensor_cut3["value"].rolling(30).mean()/1000)
                             / (
                                 (3.3929 * 10**-6)
                                 * 2
@@ -1056,7 +1101,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut2["time"],
-                            y=sensor_cut2["value"].rolling(30).mean()
+                            y=(sensor_cut2["value"].rolling(30).mean()/1000)
                             / (
                                 6.9318
                                 * 10**-6
@@ -1080,7 +1125,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut3["time"],
-                            y=sensor_cut3["value"].rolling(30).mean()
+                            y=(sensor_cut3["value"].rolling(30).mean()/1000)
                             / (
                                 (4.7123 * 10**-6)
                                 * 2
@@ -1100,7 +1145,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut2["time"],
-                            y=sensor_cut2["value"].rolling(30).mean()
+                            y=(sensor_cut2["value"].rolling(30).mean()/1000)
                             / (
                                 6.7858
                                 * 10**-6
@@ -1124,7 +1169,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut3["time"],
-                            y=sensor_cut3["value"].rolling(30).mean()
+                            y=(sensor_cut3["value"].rolling(30).mean()/1000)
                             / (
                                 (3.0159 * 10**-6)
                                 * 2
@@ -1144,7 +1189,7 @@ with DatabaseInstance() as db:
                     fig8.add_trace(
                         go.Scatter(
                             x=sensor_cut2["time"],
-                            y=sensor_cut2["value"].rolling(30).mean()
+                            y=(sensor_cut2["value"].rolling(30).mean()/1000)
                             / (
                                 4.2529
                                 * 10**-6
