@@ -7,8 +7,8 @@ from datetime import datetime, timedelta
 from io import StringIO
 import os
 
-# DATBASE FUNCTION DEFINITIONS 
-#----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# DATBASE FUNCTION DEFINITIONS
+# ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 
 # database credentials are stored in environmental variables
 connection_config = {
@@ -32,7 +32,7 @@ if "end_time" not in st.session_state:
     st.session_state["end_time"] = ""
 
 if "show_plot" not in st.session_state:
-    st.session_state["show_plot"] = False  
+    st.session_state["show_plot"] = False
 
 
 # Function to Fetch Data from the Database in general
@@ -74,7 +74,7 @@ def get_config_ids_with_dates():
     return df
 
 
-#Function to fetch time range for a specific test
+# Function to fetch time range for a specific test
 def get_test_time_range(config_id):
     """Fetch the start and end times for a given test configuration."""
     query = f"""
@@ -97,7 +97,7 @@ def get_test_time_range(config_id):
         return "", ""
 
 
-# Function to Fetch Sensor Names for a specific test  
+# Function to Fetch Sensor Names for a specific test
 def get_sensors_with_data(config_id):
     query = f"""
     SELECT DISTINCT sensors.name 
@@ -145,6 +145,7 @@ def get_sensor_values_with_ma_for_multiple_sensors(
             dfs.append(df)
     return pd.concat(dfs)
 
+
 # Function to fetch all sensor values for a specific sensor_id
 def get_sensor_values(sensor_id):
     query = f"""
@@ -159,6 +160,7 @@ def get_sensor_values(sensor_id):
         )  # Convert timestamps to datetime objects
     return df
 
+
 # Function to convert dataframe into csv file so that data can be downloaded
 # ATTENTION: atm we don't really use this option yet, we don't have the option implemented to download stuff, but i'm planning to implement this again
 def convert_df_to_csv(df):
@@ -172,9 +174,7 @@ def convert_df_to_csv(df):
 @st.cache_data
 def calculate_moving_average(df, window=30):
     df["value_ma"] = df["value"].rolling(window=window).mean()
-    df["value_ma"] = df["value_ma"].fillna(
-        df["value"]
-    )
+    df["value_ma"] = df["value_ma"].fillna(df["value"])
     return df
 
 
@@ -238,6 +238,7 @@ def get_sensor_data_for_multiple_tests(sensor_name, config_ids):
     else:
         return pd.DataFrame()
 
+
 # this function here is needed so that the time range is updated again when a new test is selected
 def update_time_range():
     selected_config_id_date = st.session_state["config_id_select"]
@@ -248,7 +249,8 @@ def update_time_range():
     st.session_state["start_time"] = start_time
     st.session_state["end_time"] = end_time
 
-#this here doesnt work yet, i'm not sure how to implement so that we eventually actually have the actuator names in there. but i'll keep trying
+
+# this here doesnt work yet, i'm not sure how to implement so that we eventually actually have the actuator names in there. but i'll keep trying
 def fetch_actuator_times(config_id, actuator_name="DefaultActuator"):
     """Fetch activation and deactivation times for a given actuator and configuration."""
     query_on = f"""
@@ -277,7 +279,7 @@ def fetch_actuator_times(config_id, actuator_name="DefaultActuator"):
 
 
 # Streamlit Interface Setup
-#---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+# ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 st.image(
     "https://raw.githubusercontent.com/derwidii/helios_database/main/HELIOS.png",
     width=100,
